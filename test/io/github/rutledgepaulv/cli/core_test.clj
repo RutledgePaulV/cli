@@ -2,7 +2,7 @@
   (:require [clojure.string :as strings]
             [clojure.test :refer :all]
             [io.github.rutledgepaulv.cli.core :as cli]
-            [io.github.rutledgepaulv.cli.impl.helpers :as helpers]))
+            [io.github.rutledgepaulv.cli.impl.ir :as ir]))
 
 (def AddCommand
   {:command     "add"
@@ -32,14 +32,6 @@
    :description "This is the main command."
    :subcommands #{MathCommand}})
 
-(defn extract-in [x path]
-  (loop [x x path path]
-    (if (empty? path)
-      x
-      (if (fn? (first path))
-        (recur (first (filter (first path) x)) (rest path))
-        (recur (get x (first path)) (rest path))))))
-
 (deftest test-top-level-summaries
   (is (= ["usage:"
           ""
@@ -50,7 +42,7 @@
           ""
           "  help\t - Show help documentation for these commands."
           "  math\t - This is the math command."]
-         (strings/split-lines (cli/summarize MainCommand))))
+         (strings/split-lines (cli/summarize (ir/command-tree->ir MainCommand)))))
 
   (is (= ["usage:"
           ""
@@ -66,7 +58,7 @@
           "[math-options]"
           ""
           "  -d,--delta\tThe offset."]
-         (strings/split-lines (cli/summarize MathCommand))))
+         (strings/split-lines (cli/summarize (ir/command-tree->ir MathCommand)))))
 
   (is (= ["usage:"
           ""
@@ -78,7 +70,7 @@
           "  -a,--alpha\tThe first number to add."
           "  -b,--beta\tThe second number to add."
           "  -h,--help\tShow help documentation for this command."]
-         (strings/split-lines (cli/summarize AddCommand)))))
+         (strings/split-lines (cli/summarize (ir/command-tree->ir AddCommand))))))
 
 
 (deftest test-nested-summaries
@@ -97,8 +89,6 @@
           "[math-options]"
           ""
           "  -d,--delta\tThe offset."]
-         (->> [:subcommands #(= "math" (:command %))
-               :subcommands #(= "add" (:command %))]
-              (extract-in (helpers/config->ast MainCommand))
-              (cli/summarize)
-              (strings/split-lines)))))
+         (let [ir      (ir/command-tree->ir MainCommand)
+               node-id (ir/find-node-id-by-command-pred ir (fn [x] (= (:command x) "add")))]
+           (strings/split-lines (cli/summarize ir node-id))))))

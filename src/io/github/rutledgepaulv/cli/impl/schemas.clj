@@ -84,6 +84,9 @@
 (def command-validator
   (m/validator Command))
 
+(defn is-command? [x]
+  (command-validator x))
+
 (defn is-branch? [x]
   (and (command-validator x) (not (empty? (:subcommands x)))))
 

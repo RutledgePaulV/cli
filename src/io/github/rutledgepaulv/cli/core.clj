@@ -1,17 +1,18 @@
 (ns io.github.rutledgepaulv.cli.core
   (:require [io.github.rutledgepaulv.cli.impl.helpers :as helpers]
-            [io.github.rutledgepaulv.cli.impl.utils :as utils]))
+            [io.github.rutledgepaulv.cli.impl.utils :as utils]
+            [io.github.rutledgepaulv.cli.impl.ir :as ir]))
 
 
-(defn summarize [config]
-  (helpers/summarize
-    (-> config
-        (helpers/config->ast)
-        (helpers/inject-help))))
+(defn summarize
+  ([ir]
+   (summarize ir (ir/find-root-node-id ir)))
+  ([ir node-id]
+   (helpers/summarize (helpers/inject-help ir) node-id)))
 
-(defn parse [config args]
-  (let [ast (-> config
-                (helpers/config->ast)
+(defn parse [command-tree args]
+  (let [ast (-> command-tree
+                (ir/command-tree->ir)
                 (helpers/inject-help))]
     (loop [node      ast
            parent    nil

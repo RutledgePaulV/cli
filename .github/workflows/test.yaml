@@ -1,0 +1,24 @@
+on:
+  push:
+    paths:
+      - "src/**"
+      - "test/**"
+      - ".github/workflows/test.yaml"
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    name: "test"
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v2
+      - name: Prepare java
+        uses: actions/setup-java@v1
+        with:
+          java-version: 1.8
+      - name: Install clojure tools
+        uses: DeLaGuardo/setup-clojure@3.4
+        with:
+          cli: 1.10.3.855
+      - name: Execute tests
+        run: clojure -X:test
+        shell: bash
