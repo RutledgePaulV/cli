@@ -20,5 +20,5 @@ jobs:
         with:
           cli: 1.10.3.855
       - name: Execute tests
-        run: clojure -X:test
+        run: clojure -X:run-tests
         shell: bash
