@@ -32,6 +32,9 @@
    [:fn {:error/message "multi character options must be prefixed by two dashes"}
     (fn [x] (and (strings/starts-with? x "--") (<= 4 (count x))))]])
 
+(def OptionFlag
+  [:or LongOptionFlag ShortOptionFlag])
+
 (def OptionParser
   [:and :keyword
    [:fn {:error/fn
@@ -40,7 +43,7 @@
     (fn [x] (m/validate (get-parser-schema) x))]])
 
 (def OptionAliases
-  [:and [:set {:default #{}} [:or LongOptionFlag ShortOptionFlag]]
+  [:and [:set {:default #{}} OptionFlag]
    [:fn {:error/message "must not be empty"} not-empty]])
 
 (def Option
@@ -84,8 +87,21 @@
 (def command-validator
   (m/validator Command))
 
+(def option-validator
+  (m/validator OptionFlag))
+
 (defn is-command? [x]
   (command-validator x))
+
+(defn is-option? [x]
+  (option-validator x))
+
+(defn is-multi-option? [schema]
+  (or (contains? #{:set :vector} (m/type schema))
+      (and (or (m/validate schema #{})
+               (m/validate schema []))
+           (and (not (m/validate schema 1))
+                (not (m/validate schema "x"))))))
 
 (defn is-branch? [x]
   (and (command-validator x) (not (empty? (:subcommands x)))))
@@ -103,10 +119,11 @@
   (not (is-required? schema)))
 
 (defn is-boolean? [schema]
-  (and (m/validate schema true)
-       (m/validate schema false)
-       (not (m/validate schema "x"))
-       (not (m/validate schema :x))
-       (not (m/validate schema 1))
-       (not (m/validate schema {}))
-       (not (m/validate schema []))))
+  (or (contains? #{:boolean} (m/type schema))
+      (and (m/validate schema true)
+           (m/validate schema false)
+           (not (m/validate schema "x"))
+           (not (m/validate schema :x))
+           (not (m/validate schema 1))
+           (not (m/validate schema {}))
+           (not (m/validate schema [])))))
