@@ -27,9 +27,6 @@
 (defn find-root-node-id [ir]
   (first (get-in ir [:forward-graph ""])))
 
-(defn find-node-id-by-command-pred [ir pred]
-  (reduce (fn [nf [k v]] (if (pred v) (reduced k) nf)) nil (:nodes ir)))
-
 (defn has-parent? [ir node]
   (some? (parent-of ir node)))
 
@@ -81,3 +78,10 @@
                 :forward-graph {}
                 :reverse-graph {}})
        (with-readable-ids)))
+
+(defn ir->hiccup [ir]
+  (letfn [(node->hiccup [node-id]
+            (let [command (get-in ir [:nodes node-id])]
+              (into [(:command command)]
+                    (map node->hiccup (get-in ir [:forward-graph node-id])))))]
+    (node->hiccup (find-root-node-id ir))))

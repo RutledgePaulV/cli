@@ -19,6 +19,7 @@
   (validate! command-tree)
   (-> command-tree
       (ir/command-tree->ir)
+      (injections/inject-tree)
       (injections/inject-help)))
 
 (defn summarize
@@ -31,7 +32,7 @@
 
 (defn parse [command-tree args]
   (let [{:keys [forward-graph nodes] :as ir} (command-tree->ir command-tree)]
-    (loop [remaining args path [] candidate-commands (utils/index-by :command (vals nodes))]
+    (loop [remaining args path [] candidate-commands (utils/index-by :command (vals (select-keys nodes [(ir/find-root-node-id ir)])))]
       (if (or (empty? remaining) (empty? candidate-commands))
         {:ir ir :path path}
         (let [next-candidate (first remaining)]
@@ -57,7 +58,7 @@
                 {:ir ir :path (conj path {:command   next-candidate
                                           :options   (:options command-opts)
                                           :errors    (:errors command-opts)
-                                          :arguments (:remainder command-opts [])})}
+                                          :arguments (vec (:remainder command-opts []))})}
                 (let [candidates (get forward-graph (:id (meta (get candidate-commands next-candidate))))]
                   (recur (:remainder command-opts)
                          (conj path {:command next-candidate

@@ -2,7 +2,8 @@
   "Functions that modify the intermediate representation to inject
    additional functionality beyond what was specified by the user
    in their initial command-tree."
-  (:require [io.github.rutledgepaulv.cli.impl.explanations :as explanations]))
+  (:require [io.github.rutledgepaulv.cli.impl.explanations :as explanations]
+            [io.github.rutledgepaulv.cli.impl.ir :as ir]))
 
 (defn inject-help-subcommands [{:keys [nodes] :as ir}]
   (reduce
@@ -47,3 +48,21 @@
   (-> ir
       (inject-help-options)
       (inject-help-subcommands)))
+
+(defn inject-tree [ir]
+  (let [root-id      (ir/find-root-node-id ir)
+        hiccup       (ir/ir->hiccup ir)
+        tree-id      (str root-id ".tree")
+        tree-command (with-meta
+                       {:command     "tree"
+                        :description "Show the full command tree."
+                        :options     {:depth {:description "How many levels deep should be displayed?"
+                                              :parser      :number
+                                              :aliases     #{"-d" "--depth"}
+                                              :schema      [:maybe {:default Integer/MAX_VALUE} 'pos-int?]}}
+                        :run         (fn [_] [:documentation (explanations/hiccup->tree hiccup)])}
+                       {:id tree-id :parent root-id})]
+    (-> ir
+        (assoc-in [:nodes tree-id] tree-command)
+        (update-in [:forward-graph root-id] (fnil conj #{}) tree-id)
+        (assoc-in [:reverse-graph tree-id] root-id))))

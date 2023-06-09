@@ -47,3 +47,10 @@
                           (interleave (repeat \newline))))
                    (remove nil?)))
         (strings/join \newline))))
+
+(defn hiccup->tree [hiccup]
+  (letfn [(emit [depth [node & children]]
+            (println (str (apply str (repeat depth "  ")) node))
+            (doseq [child (sort-by first children)]
+              (emit (inc depth) child)))]
+    (emit 0 hiccup)))

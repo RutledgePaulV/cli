@@ -40,7 +40,8 @@
           "subcommands:"
           ""
           "  help\t - Show help documentation for these commands."
-          "  math\t - This is the math command."]
+          "  math\t - This is the math command."
+          "  tree\t - Show the full command tree."]
          (strings/split-lines (cli/summarize MainCommand))))
 
   (is (= ["usage:"
@@ -52,6 +53,7 @@
           ""
           "  add\t - Adds two numbers together."
           "  help\t - Show help documentation for these commands."
+          "  tree\t - Show the full command tree."
           ""
           ""
           "[math-options]"
@@ -61,14 +63,19 @@
 
   (is (= ["usage:"
           ""
-          "  add [add-options]"
+          "  add [add-options] <subcommand>"
+          ""
+          ""
+          "subcommands:"
+          ""
+          "  help\t - Show help documentation for these commands."
+          "  tree\t - Show the full command tree."
           ""
           ""
           "[add-options]"
           ""
           "  -a,--alpha\tThe first number to add."
-          "  -b,--beta\tThe second number to add."
-          "  -h,--help\tShow help documentation for this command."]
+          "  -b,--beta\tThe second number to add."]
          (strings/split-lines (cli/summarize AddCommand)))))
 
 
@@ -94,11 +101,11 @@
 (deftest parse-test
   (is (= [] (:path (cli/parse MainCommand []))))
 
-  (is (= [[{:command "main", :options {}, :errors []}
-           {:command "help", :options {}, :errors [], :arguments []}]]
+  (is (= [{:command "main", :options {}, :errors []}
+          {:command "help", :options {}, :errors [], :arguments []}]
          (:path (cli/parse MainCommand ["main" "help"]))))
 
   (is (= [{:command "main", :options {}, :errors []}
           {:command "math", :options {:a "test"}, :errors []}
-          {:command "add", :options {:a "2", :b #{"4" "6"}}, :errors [], :arguments ("7")}]
+          {:command "add", :options {:a "2", :b #{"4" "6"}}, :errors [], :arguments ["7"]}]
          (:path (cli/parse MainCommand ["main" "math" "-d" "test" "add" "-a" "2" "-b" "4" "-b" "6" "7"])))))

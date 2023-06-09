@@ -106,9 +106,6 @@
 (defn is-branch? [x]
   (and (command-validator x) (not (empty? (:subcommands x)))))
 
-(defn is-leaf? [x]
-  (and (command-validator x) (empty? (:subcommands x))))
-
 (defn has-default? [schema]
   (some? (m/decode schema nil mt/default-value-transformer)))
 
