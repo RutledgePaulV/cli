@@ -6,6 +6,3 @@
 
 (defn index-by [f coll]
   (into {} (map (fn [x] [(f x) x])) coll))
-
-(defn filter-vals [pred m]
-  (into {} (filter (fn [entry] (pred (val entry))) m)))
