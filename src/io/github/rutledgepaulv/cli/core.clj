@@ -55,13 +55,13 @@
                                             (recur (cons option-value more) options (conj errors {:kind :unknown-option :option option-name})))
                                           {:options options :errors errors :remainder remainder})))]
               (if (empty? (get forward-graph (:id (meta (get candidate-commands next-candidate)))))
-                {:ir ir :path (conj path {:command   next-candidate
+                {:ir ir :path (conj path {:command   (:id (meta (get candidate-commands next-candidate)))
                                           :options   (:options command-opts)
                                           :errors    (:errors command-opts)
                                           :arguments (vec (:remainder command-opts []))})}
                 (let [candidates (get forward-graph (:id (meta (get candidate-commands next-candidate))))]
                   (recur (:remainder command-opts)
-                         (conj path {:command next-candidate
+                         (conj path {:command (:id (meta (get candidate-commands next-candidate)))
                                      :options (:options command-opts)
                                      :errors  (:errors command-opts)})
                          (utils/index-by :command (vals (select-keys nodes candidates)))))))
@@ -69,16 +69,67 @@
 
 
 (defn coerce [{:keys [ir path] :as parse-result}]
-  )
+  (letfn [(coerce [{:keys [command options arguments] :as segment}]
+            (let [spec            (get-in ir [:nodes command])
+                  coerced-options (reduce
+                                    (fn [options [option-key option-value]]
+                                      (assoc
+                                        options
+                                        option-key
+                                        (schemas/coerce
+                                          (get-in spec [:options option-key :schema])
+                                          option-value)))
+                                    {}
+                                    options)]
+              (cond-> segment
+                :always
+                (assoc :options coerced-options)
+                (some? (:arguments spec))
+                (assoc :arguments (schemas/coerce (get-in spec [:arguments :schema]) arguments)))))]
+    {:ir ir :path (reduce (fn [path segment] (conj path (coerce segment))) [] path)}))
 
 (defn validate [{:keys [ir path] :as parse-result}]
-  )
+  parse-result)
+
+(defn default-middleware [handler options]
+  (fn inner-handler [inner-options]
+    (handler (merge options inner-options))))
+
+(defn check [{:keys [ir path] :as parse-result}]
+  parse-result)
 
 (defn execute [{:keys [ir path] :as parse-result}]
-  )
+  (let [[[spec parsed] & upstream]
+        (->> path
+             rseq
+             (map (fn [{:keys [command] :as parsed}]
+                    [(get-in ir [:nodes command]) parsed])))]
+    (try
+      [:result
+       ((reduce
+          (fn [handler [spec parsed]]
+            ((:middleware spec default-middleware) handler (:options parsed)))
+          ((:middleware spec default-middleware)
+           (:run spec)
+           (assoc (:options parsed) :arguments (:arguments parsed)))
+          upstream)
+        {})]
+      (catch Exception e
+        [:error e]))))
+
 
 (defn run [command-tree args]
-  (-> (parse command-tree args) (coerce) (validate) (execute)))
+  (-> (parse command-tree args)
+      (coerce)
+      (validate)
+      (check)
+      (execute)))
 
 (defn run-string [command-tree arg-string]
+  (run command-tree (clojure.string/split arg-string #"\s+")))
+
+(comment
+
+  (execute (parse MainCommand ["main" "math" "add" "-a" "1" "-b" "2"]))
+
   )

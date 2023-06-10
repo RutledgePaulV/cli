@@ -74,6 +74,7 @@
        [:command StringWithoutWhitespace]
        [:description NotBlankString]
        [:run {:optional true} CommandFunction]
+       [:arguments {:optional true} MalliSchema]
        [:options {:optional true} CommandOptions]
        [:middleware {:optional true} CommandMiddleware]
        [:subcommands {:optional true}
@@ -81,8 +82,11 @@
          [:fn {:error/message "must have at least one subcommand"} not-empty]]]]
       [:fn {:error/message "must have either a run function or subcommands"}
        (fn [x] (or (and (contains? x :run) (not (contains? x :subcommands)))
-                   (and (not (contains? x :run)) (contains? x :subcommands))))]]}}
+                   (and (not (contains? x :run)) (contains? x :subcommands))))]
+      [:fn {:error/message "can only have positional arguments on leaf commands with a run function"}
+       (fn [x] (or (some? (:run x)) (not (some? (:arguments x)))))]]}}
    [:ref ::command]])
+
 
 (def command-validator
   (m/validator Command))
@@ -124,3 +128,10 @@
            (not (m/validate schema 1))
            (not (m/validate schema {}))
            (not (m/validate schema [])))))
+
+(defn coerce [schema x]
+  (m/decode schema x
+            (mt/transformer
+              mt/default-value-transformer
+              mt/string-transformer
+              mt/collection-transformer)))

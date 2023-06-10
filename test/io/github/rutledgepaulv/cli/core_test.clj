@@ -14,7 +14,7 @@
                  :b {:description "The second number to add."
                      :parser      :number
                      :aliases     #{"-b" "--beta"}
-                     :schema      [:vector [:and :int [:fn {:error/message "must be greater than 0"} pos?]]]}}})
+                     :schema      [:and :int [:fn {:error/message "must be greater than 0"} pos?]]}}})
 
 (def MathCommand
   {:command     "math"
@@ -102,10 +102,10 @@
   (is (= [] (:path (cli/parse MainCommand []))))
 
   (is (= [{:command "main", :options {}, :errors []}
-          {:command "help", :options {}, :errors [], :arguments []}]
+          {:command "main.help", :options {}, :errors [], :arguments []}]
          (:path (cli/parse MainCommand ["main" "help"]))))
 
   (is (= [{:command "main", :options {}, :errors []}
-          {:command "math", :options {:a "test"}, :errors []}
-          {:command "add", :options {:a "2", :b #{"4" "6"}}, :errors [], :arguments ["7"]}]
+          {:command "main.math", :options {:a "test"}, :errors []}
+          {:command "main.math.add", :options {:a "2", :b #{"4" "6"}}, :errors [], :arguments ["7"]}]
          (:path (cli/parse MainCommand ["main" "math" "-d" "test" "add" "-a" "2" "-b" "4" "-b" "6" "7"])))))
