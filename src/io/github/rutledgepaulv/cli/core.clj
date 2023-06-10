@@ -85,35 +85,82 @@
                 :always
                 (assoc :options coerced-options)
                 (some? (:arguments spec))
-                (assoc :arguments (schemas/coerce (get-in spec [:arguments :schema]) arguments)))))]
+                (assoc :arguments (schemas/coerce (get-in spec [:arguments]) arguments)))))]
     {:ir ir :path (reduce (fn [path segment] (conj path (coerce segment))) [] path)}))
 
 (defn validate [{:keys [ir path] :as parse-result}]
-  parse-result)
+
+  ; still need to add checks for missing required options
+
+  (reduce
+    (fn [{:keys [ir path] :as parse-result} path-index]
+      (update-in
+        parse-result
+        [:path path-index]
+        (fn [segment]
+          (as-> segment $
+                (reduce (fn [segment [option-key option-value]]
+                          (let [option-spec (get-in ir [:nodes (:command segment) :options option-key])]
+                            (if-some [explanation (m/explain (:schema option-spec) option-value)]
+                              (update segment :errors conj
+                                      {:kind        :invalid-option
+                                       :option      option-key
+                                       :explanation explanation})
+                              segment)))
+                        $ (:options segment))
+                (reduce (fn [segment arguments]
+                          (if-some [argument-spec (get-in ir [:nodes (:command segment) :arguments])]
+                            (if-some [explanation (m/explain argument-spec arguments)]
+                              (update segment :errors conj
+                                      {:kind        :invalid-positional-argument
+                                       :explanation explanation})
+                              segment)
+                            (if (= segment (last path))
+                              (if-some [explanation (m/explain [:cat] arguments)]
+                                (update segment :errors conj
+                                        {:kind        :unexpected-positional-arguments
+                                         :explanation explanation})
+                                segment)
+                              segment)))
+                        $ [(:arguments segment)])))))
+    parse-result
+    (range (count path))))
 
 (defn default-middleware [handler options]
   (fn inner-handler [inner-options]
     (handler (merge options inner-options))))
 
+
 (defn check [{:keys [ir path] :as parse-result}]
+
+  ; this is what will produce an error for the user instead of proceeding
+  ; to execute phase now that we've done all coercion and validation to gather
+  ; all the errors we could find
+
+  ; this also needs to check that the last command of path contains a run function.
+  ; if it doesn't contain a run function then it should summarize as of that node in
+  ; the path what the possible next commands are.
+
   parse-result)
 
 (defn execute [{:keys [ir path] :as parse-result}]
   (let [[[spec parsed] & upstream]
-        (->> path
-             rseq
-             (map (fn [{:keys [command] :as parsed}]
-                    [(get-in ir [:nodes command]) parsed])))]
+        (map (fn [{:keys [command] :as parsed}]
+               [(get-in ir [:nodes command]) parsed])
+             (rseq path))]
     (try
-      [:result
-       ((reduce
-          (fn [handler [spec parsed]]
-            ((:middleware spec default-middleware) handler (:options parsed)))
-          ((:middleware spec default-middleware)
-           (:run spec)
-           (assoc (:options parsed) :arguments (:arguments parsed)))
-          upstream)
-        {})]
+      (let [result ((reduce
+                      (fn [handler [spec parsed]]
+                        ((:middleware spec default-middleware) handler (:options parsed)))
+                      ((:middleware spec default-middleware)
+                       (:run spec)
+                       (assoc (:options parsed) :arguments (:arguments parsed)))
+                      upstream)
+                    {})]
+        (if (and (vector? result)
+                 (contains? #{:documentation :invalid :error :result} (first result)))
+          result
+          [:result result]))
       (catch Exception e
         [:error e]))))
 

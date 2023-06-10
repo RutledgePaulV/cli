@@ -8,23 +8,26 @@
    :run         (fn [{:keys [a b]}] (+ a b))
    :description "Adds two numbers together."
    :options     {:a {:description "The first number to add."
-                     :parser      :number
                      :aliases     #{"-a" "--alpha"}
                      :schema      [:and :int [:fn {:error/message "must be greater than 0"} pos?]]}
                  :b {:description "The second number to add."
-                     :parser      :number
                      :aliases     #{"-b" "--beta"}
                      :schema      [:and :int [:fn {:error/message "must be greater than 0"} pos?]]}}})
+
+(def PositionalAddCommand
+  {:command     "addp"
+   :run         (fn [{:keys [arguments]}] (reduce + arguments))
+   :description "Adds many numbers together."
+   :arguments   [:+ [:and :int [:fn {:error/message "must be greater than 0"} pos?]]]})
 
 (def MathCommand
   {:command     "math"
    :description "This is the math command."
    :options     {:a {:description "The offset."
-                     :parser      :number
                      :aliases     #{"-d" "--delta"}
                      :schema      :int}}
    :middleware  (fn [handler options] handler)
-   :subcommands #{AddCommand}})
+   :subcommands #{AddCommand PositionalAddCommand}})
 
 (def MainCommand
   {:command     "main"
@@ -52,6 +55,7 @@
           "subcommands:"
           ""
           "  add\t - Adds two numbers together."
+          "  addp\t - Adds many numbers together."
           "  help\t - Show help documentation for these commands."
           "  tree\t - Show the full command tree."
           ""
@@ -107,5 +111,5 @@
 
   (is (= [{:command "main", :options {}, :errors []}
           {:command "main.math", :options {:a "test"}, :errors []}
-          {:command "main.math.add", :options {:a "2", :b #{"4" "6"}}, :errors [], :arguments ["7"]}]
+          {:command "main.math.add", :options {:a "2", :b "6"}, :errors [], :arguments ["7"]}]
          (:path (cli/parse MainCommand ["main" "math" "-d" "test" "add" "-a" "2" "-b" "4" "-b" "6" "7"])))))

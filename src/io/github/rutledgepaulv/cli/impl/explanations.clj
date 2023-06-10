@@ -49,8 +49,9 @@
         (strings/join \newline))))
 
 (defn hiccup->tree [hiccup]
-  (letfn [(emit [depth [node & children]]
-            (println (str (apply str (repeat depth "  ")) node))
-            (doseq [child (sort-by first children)]
-              (emit (inc depth) child)))]
-    (emit 0 hiccup)))
+  (with-out-str
+    (letfn [(emit [depth [node & children]]
+              (println (str (apply str (repeat depth "  ")) node))
+              (doseq [child (sort-by first children)]
+                (emit (inc depth) child)))]
+      (emit 0 hiccup))))

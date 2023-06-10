@@ -1,8 +1,6 @@
 (ns io.github.rutledgepaulv.cli.impl.schemas
   (:require [clojure.string :as strings]
-            [io.github.rutledgepaulv.cli.impl.parsers :as parsers]
             [malli.core :as m]
-            [malli.error :as me]
             [malli.transform :as mt]))
 
 (def MalliSchema
@@ -11,9 +9,6 @@
      (try
        (m/schema? (m/schema x))
        (catch Exception e false)))])
-
-(defn get-parser-schema []
-  (into [:enum] (remove #{:default} (keys (methods parsers/parse)))))
 
 (def NotBlankString
   [:and :string [:fn {:error/message "must not be blank"} (complement strings/blank?)]])
@@ -35,13 +30,6 @@
 (def OptionFlag
   [:or LongOptionFlag ShortOptionFlag])
 
-(def OptionParser
-  [:and :keyword
-   [:fn {:error/fn
-         (fn [{:keys [value]} _]
-           (strings/join " " (me/humanize (m/explain (get-parser-schema) value))))}
-    (fn [x] (m/validate (get-parser-schema) x))]])
-
 (def OptionAliases
   [:and [:set {:default #{}} OptionFlag]
    [:fn {:error/message "must not be empty"} not-empty]])
@@ -50,7 +38,6 @@
   [:map {:closed true}
    [:description NotBlankString]
    [:aliases OptionAliases]
-   [:parser OptionParser]
    [:schema MalliSchema]])
 
 (def CommandOptions

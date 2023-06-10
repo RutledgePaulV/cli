@@ -22,7 +22,7 @@
               (assoc-in [:reverse-graph help-command-id] node-id)))
         ir))
     ir
-    (remove #{""} (keys nodes))))
+    (keys nodes)))
 
 (defn inject-help-options [{:keys [nodes] :as ir}]
   (reduce
@@ -42,7 +42,7 @@
                                (old-run options)))))))
         ir))
     ir
-    (remove #{""} (keys nodes))))
+    (keys nodes)))
 
 (defn inject-help [ir]
   (-> ir
