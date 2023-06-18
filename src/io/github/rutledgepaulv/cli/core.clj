@@ -1,17 +1,17 @@
 (ns io.github.rutledgepaulv.cli.core
-  (:require [io.github.rutledgepaulv.cli.impl.explanations :as explanations]
+  (:require [clojure.pprint :as pprint]
+            [io.github.rutledgepaulv.cli.impl.explanations :as explanations]
             [io.github.rutledgepaulv.cli.impl.injections :as injections]
             [io.github.rutledgepaulv.cli.impl.ir :as ir]
             [io.github.rutledgepaulv.cli.impl.schemas :as schemas]
             [io.github.rutledgepaulv.cli.impl.utils :as utils]
-            [clojure.pprint :as pprint]
-            [malli.core :as m]
-            [malli.error :as me]))
+            [malli.core :as m]))
 
 (defn validate! [command-tree]
   (if-some [explanation (m/explain schemas/Command command-tree)]
-    (let [human-readable (me/humanize explanation)]
-      (throw (ex-info (str "Invalid command tree." \newline \newline
+    (let [human-readable (utils/humanize explanation)]
+      (throw (ex-info (str "Invalid command tree. This is a development error, not a user error."
+                           \newline \newline
                            (with-out-str (pprint/pprint human-readable)))
                       {:explanation human-readable})))))
 
@@ -52,7 +52,9 @@
                                               (if (schemas/is-multi-option? (:schema option-spec))
                                                 (recur more (update options (:key option-spec) (fnil conj #{}) option-value) errors)
                                                 (recur more (assoc options (:key option-spec) option-value) errors)))
-                                            (recur (cons option-value more) options (conj errors {:kind :unknown-option :option option-name})))
+                                            (recur more
+                                                   options
+                                                   (conj errors {:kind :unknown-option :option option-name})))
                                           {:options options :errors errors :remainder remainder})))]
               (if (empty? (get forward-graph (:id (meta (get candidate-commands next-candidate)))))
                 {:ir ir :path (conj path {:command   (:id (meta (get candidate-commands next-candidate)))
@@ -149,18 +151,20 @@
                [(get-in ir [:nodes command]) parsed])
              (rseq path))]
     (try
-      (let [result ((reduce
-                      (fn [handler [spec parsed]]
-                        ((:middleware spec default-middleware) handler (:options parsed)))
-                      ((:middleware spec default-middleware)
-                       (:run spec)
-                       (assoc (:options parsed) :arguments (:arguments parsed)))
-                      upstream)
-                    {})]
-        (if (and (vector? result)
-                 (contains? #{:documentation :invalid :error :result} (first result)))
-          result
-          [:result result]))
+      (if-some [handler (:run spec)]
+        (let [result ((reduce
+                        (fn [handler [spec parsed]]
+                          ((:middleware spec default-middleware) handler (:options parsed)))
+                        ((:middleware spec default-middleware)
+                         handler
+                         (assoc (:options parsed) :arguments (:arguments parsed)))
+                        upstream)
+                      {})]
+          (if (and (vector? result)
+                   (contains? #{:documentation :invalid :error :result} (first result)))
+            result
+            [:result result]))
+        [:invalid (explanations/summarize ir (ir/node->id spec))])
       (catch Exception e
         [:error e]))))
 
@@ -173,7 +177,7 @@
       (execute)))
 
 (defn run-string [command-tree arg-string]
-  (run command-tree (clojure.string/split arg-string #"\s+")))
+  (run command-tree (utils/tokenize arg-string)))
 
 (comment
 
